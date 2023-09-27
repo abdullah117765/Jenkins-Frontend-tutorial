@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout the code from the Git repository
+                checkout scm
+            }
+        }
+
+        stage('Build and Push Docker Image') {
+            steps {
+                // Build and push Docker image
+                script {
+                    docker.build('my-react-app', './path/to/Dockerfile')
+                    docker.withRegistry('https://your-docker-registry', 'your-credentials-id') {
+                        docker.image('my-react-app').push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Ubuntu VM') {
+            steps {
+                // SSH into the Ubuntu VM and deploy the Docker container
+                sshagent(credentials: ['your-ssh-credentials-id']) {
+                    sh '''
+                        ssh ubuntu@your-vm-ip-address << EOF
+                            docker pull your-docker-registry/my-react-app
+                            docker run -d --name my-react-app-container -p 80:80 your-docker-registry/my-react-app
+                        EOF
+                    '''
+                }
+            }
+        }
+    }
+}
