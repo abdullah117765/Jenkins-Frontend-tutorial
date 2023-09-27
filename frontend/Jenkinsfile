@@ -1,0 +1,43 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build and Dockerize') {
+            steps {
+                sh 'npm install' // Install dependencies if using Node.js
+                sh 'npm run build' // Build your React.js app
+
+                script {
+                    def dockerImage = docker.build('your-image-name:tag', '.')
+                }
+            }
+        }
+        
+        stage('Publish Docker Image') {
+            steps {
+                withCredentials([string(credentialsId: 'your-github-token-credential-id', variable: 'GH_TOKEN')]) {
+                    sh 'docker login -u <GitHubUsername> -p $GH_TOKEN docker.pkg.github.com' // Log in to GitHub Docker registry
+                    sh 'docker push docker.pkg.github.com/<GitHubUsername>/<Repository>/<ImageName>:<Tag>' // Push Docker image to GitHub Packages
+                }
+            }
+        }
+        
+        stage('Deploy to Ubuntu') {
+            steps {
+                sshagent(['your-ssh-credential-id']) {
+                    // Copy Docker-compose file and other necessary files to the Ubuntu machine
+                    sh 'scp -o StrictHostKeyChecking=no -r /path/to/files username@ubuntu-ip:/path/on/ubuntu'
+                    
+                    // SSH into the Ubuntu machine and start the Docker container
+                    sh 'ssh -o StrictHostKeyChecking=no username@ubuntu-ip "cd /path/on/ubuntu && docker-compose up -d"'
+                }
+            }
+        }
+    }
+}
